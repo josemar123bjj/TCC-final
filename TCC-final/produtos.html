@@ -11,10 +11,10 @@
     <h2>Longitec</h2>
     <nav>
       <a href="dashboard.html">🏠 Dashboard</a>
-      <a href="produtos.html" class="active">📦 Produtos</a>
+      <a href="produtos.html">📦 Produtos</a>
       <a href="configuracoes.html">⚙️ Configurações</a>
     </nav>
-  </aside>
+    </aside>
 
   <main class="main-content">
     <header>
@@ -104,6 +104,30 @@
       localStorage.setItem('produtos', JSON.stringify(produtos));
       renderTabela();
       inputs.forEach(input => input.value = "");
+    });
+  </script>
+  <script>
+    // Define dinamicamente o item ativo na sidebar com base no arquivo atual
+    document.addEventListener('DOMContentLoaded', () => {
+      const navLinks = document.querySelectorAll('aside.sidebar nav a');
+      const file = location.pathname.split('/').pop() || 'index.html';
+      navLinks.forEach(a => {
+        const hrefFile = a.getAttribute('href').split('/').pop();
+        if (hrefFile === file) a.classList.add('active');
+        else a.classList.remove('active');
+      });
+    });
+  </script>
+  <script>
+    // Define dinamicamente o item ativo na sidebar com base no arquivo atual
+    document.addEventListener('DOMContentLoaded', () => {
+      const navLinks = document.querySelectorAll('aside.sidebar nav a');
+      const file = location.pathname.split('/').pop() || 'index.html';
+      navLinks.forEach(a => {
+        const hrefFile = a.getAttribute('href').split('/').pop();
+        if (hrefFile === file) a.classList.add('active');
+        else a.classList.remove('active');
+      });
     });
   </script>
 </body>

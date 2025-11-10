@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Configurações — App de Estoque</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./style.css">
     <style>
         :root{
             --bg:#f6f8fa; --card:#fff; --text:#222; --accent:#0b74de; --muted:#666;
@@ -34,11 +34,11 @@
 <body>
   <aside class="sidebar">
     <h2>Longitec</h2>
-    <nav>
-      <a href="dashboard.html" class="active">🏠 Dashboard</a>
-      <a href="produtos.html">📦 Produtos</a>
-      <a href="configuracoes.html">⚙️ Configurações</a>
-    </nav>
+        <nav>
+            <a href="dashboard.html">🏠 Dashboard</a>
+            <a href="produtos.html">📦 Produtos</a>
+            <a href="configuracoes.html">⚙️ Configurações</a>
+        </nav>
   </aside>
 <div class="container" role="main">
     <header>
@@ -294,6 +294,18 @@
         if(t === 'dark') document.documentElement.style.filter = 'invert(0)'; // placeholder: integrate real theme switch
     });
 })();
+</script>
+<script>
+    // Define dinamicamente o item ativo na sidebar com base no arquivo atual
+    document.addEventListener('DOMContentLoaded', () => {
+        const navLinks = document.querySelectorAll('aside.sidebar nav a');
+        const file = location.pathname.split('/').pop() || 'index.html';
+        navLinks.forEach(a => {
+            const hrefFile = a.getAttribute('href').split('/').pop();
+            if (hrefFile === file) a.classList.add('active');
+            else a.classList.remove('active');
+        });
+    });
 </script>
 </body>
 </html>

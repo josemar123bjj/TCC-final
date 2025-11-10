@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Longitec - Dashboard</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="TCC-final/style.css">
 </head>
 <body>
   <aside class="sidebar">
     <h2>Longitec</h2>
     <nav>
-      <a href="dashboard.html" class="active">🏠 Dashboard</a>
-      <a href="produtos.html">📦 Produtos</a>
-      <a href="#">⚙️ Configurações</a>
+      <a href="TCC-final/dashboard.html">🏠 Dashboard</a>
+      <a href="TCC-final/produtos.html">📦 Produtos</a>
+      <a href="TCC-final/configuracoes.html">⚙️ Configurações</a>
     </nav>
   </aside>
 
@@ -42,6 +42,18 @@
     // Atualiza o total de produtos no dashboard
     const produtos = JSON.parse(localStorage.getItem('produtos')) || [];
     document.getElementById('total-produtos').textContent = produtos.length;
+  </script>
+  <script>
+    // Define dinamicamente o item ativo na sidebar com base no arquivo atual
+    document.addEventListener('DOMContentLoaded', () => {
+      const navLinks = document.querySelectorAll('aside.sidebar nav a');
+      const file = location.pathname.split('/').pop() || 'index.html';
+      navLinks.forEach(a => {
+        const hrefFile = a.getAttribute('href').split('/').pop();
+        if (hrefFile === file) a.classList.add('active');
+        else a.classList.remove('active');
+      });
+    });
   </script>
 </body>
 </html>
