@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Longitec - Cadastro</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="login-body">
+  <div class="login-container">
+    <h1 class="login-title">Longitec — Cadastro</h1>
+
+    <form id="register-form" class="login-form" novalidate>
+      <input type="text" id="name" placeholder="Nome completo" required />
+      <input type="email" id="email" placeholder="E-mail" required />
+      <input type="password" id="password" placeholder="Senha" required minlength="6" />
+      <input type="password" id="confirmPassword" placeholder="Confirmar senha" required minlength="6" />
+      <button type="submit">Cadastrar</button>
+      <p style="margin-top:10px; font-size:0.9rem;">
+        Já tem conta? <a href="index.html">Entrar</a>
+      </p>
+      <p id="register-error" style="color:#d00; display:none; margin-top:8px;"></p>
+    </form>
+  </div>
+
+  <script src="cadastro.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('register-form');
+      const errEl = document.getElementById('register-error');
+
+      function showError(msg) {
+        errEl.textContent = msg;
+        errEl.style.display = msg ? 'block' : 'none';
+      }
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        showError('');
+
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim().toLowerCase();
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('confirmPassword').value;
+
+        if (!name) return showError('Informe seu nome.');
+        if (!email) return showError('Informe um e-mail válido.');
+        if (password.length < 6) return showError('A senha deve ter ao menos 6 caracteres.');
+        if (password !== confirm) return showError('As senhas não coincidem.');
+
+        // salva usuário no localStorage (apenas para demo)
+        const usersKey = 'longitec_users';
+        const users = JSON.parse(localStorage.getItem(usersKey) || '[]');
+
+        if (users.some(u => u.email === email)) {
+          return showError('Este e-mail já está cadastrado.');
+        }
+
+        users.push({
+          name,
+          email,
+          // NÃO usar senha em texto puro em produção; aqui é só demo/local
+          password
+        });
+
+        localStorage.setItem(usersKey, JSON.stringify(users));
+
+        alert('Cadastro realizado com sucesso! Você será redirecionado para o login.');
+        window.location.href = 'index.html';
+      });
+    });
+  </script>
+</body>
+</html>
