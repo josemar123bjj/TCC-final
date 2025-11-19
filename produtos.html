@@ -10,10 +10,10 @@
   <aside class="sidebar">
     <h2>Longitec</h2>
     <nav>
-  <a href="dashboard.html">🏠 Dashboard</a>
-  <a href="produtos.html">📦 Produtos</a>
-  <a href="configuracoes.html">⚙️ Configurações</a>
-  <a href="saidaestoque.html">📦 Saída de Estoque</a>
+      <a href="dashboard.html">🏠 Dashboard</a>
+      <a href="produtos.html">📦 Produtos</a>
+      <a href="configuracoes.html">⚙️ Configurações</a>
+      <a href="saidaestoque.html">📦 Saída de Estoque</a>
     </nav>
   </aside>
 
@@ -44,7 +44,19 @@
         <!-- Linhas serão adicionadas dinamicamente -->
       </tbody>
     </table>
+
+    <!-- gráfico de estoque -->
+    <section class="chart-section" style="margin-top:18px;">
+      <h3 style="color:var(--accent-2); margin-bottom:10px;">Produtos em estoque</h3>
+      <div style="width:100%; max-width:900px;">
+        <canvas id="estoqueChart" height="140"></canvas>
+      </div>
+      <small id="chartEmptyMsg" style="display:none;">Nenhum produto para exibir no gráfico.</small>
+    </section>
   </main>
+
+  <!-- Chart.js (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     const addBtn = document.getElementById('addBtn');
@@ -53,6 +65,11 @@
     const qtdInput = document.getElementById('qtdInput');
     const precoInput = document.getElementById('precoInput');
     const tableBody = document.querySelector('.product-table tbody');
+
+    // novo: elementos do gráfico
+    const chartCanvas = document.getElementById('estoqueChart');
+    const chartEmptyMsg = document.getElementById('chartEmptyMsg');
+    let estoqueChart = null;
 
     // Carrega produtos salvos do localStorage
     let produtos = JSON.parse(localStorage.getItem('produtos')) || [];
@@ -64,43 +81,46 @@
       tableBody.innerHTML = "";
       if(produtos.length === 0){
         tableBody.innerHTML = '<tr><td colspan="5" class="text-center small text-muted">Nenhum produto</td></tr>';
-        return;
+      } else {
+        produtos.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${p.id}</td>
+            <td>${escapeHtml(p.nome)}</td>
+            <td>${p.qtd}</td>
+            <td>${parseFloat(p.preco).toFixed(2)}</td>
+            <td>
+              <button class="edit-btn" data-id="${p.id}">✏️ Editar</button>
+              <button class="delete-btn" data-id="${p.id}">🗑️ Excluir</button>
+            </td>
+          `;
+          tableBody.appendChild(tr);
+        });
+
+        // Adiciona eventos de exclusão
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const idRemover = parseInt(e.target.dataset.id, 10);
+            if(!confirm('Excluir produto selecionado?')) return;
+            produtos = produtos.filter(prod => prod.id !== idRemover);
+            localStorage.setItem('produtos', JSON.stringify(produtos));
+            // if we're editing the deleted item, cancel edit
+            if(editingId === idRemover) cancelEdit();
+            renderTabela();
+            renderChart(); // atualizar gráfico
+          });
+        });
+
+        // Adiciona eventos de edição
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const idEditar = parseInt(e.target.dataset.id, 10);
+            startEdit(idEditar);
+          });
+        });
       }
-      produtos.forEach(p => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${p.id}</td>
-          <td>${escapeHtml(p.nome)}</td>
-          <td>${p.qtd}</td>
-          <td>${parseFloat(p.preco).toFixed(2)}</td>
-          <td>
-            <button class="edit-btn" data-id="${p.id}">✏️ Editar</button>
-            <button class="delete-btn" data-id="${p.id}">🗑️ Excluir</button>
-          </td>
-        `;
-        tableBody.appendChild(tr);
-      });
 
-      // Adiciona eventos de exclusão
-      document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const idRemover = parseInt(e.target.dataset.id, 10);
-          if(!confirm('Excluir produto selecionado?')) return;
-          produtos = produtos.filter(prod => prod.id !== idRemover);
-          localStorage.setItem('produtos', JSON.stringify(produtos));
-          // if we're editing the deleted item, cancel edit
-          if(editingId === idRemover) cancelEdit();
-          renderTabela();
-        });
-      });
-
-      // Adiciona eventos de edição
-      document.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const idEditar = parseInt(e.target.dataset.id, 10);
-          startEdit(idEditar);
-        });
-      });
+      renderChart();
     }
 
     function startEdit(idEditar){
@@ -165,11 +185,79 @@
       nomeInput.value = "";
       qtdInput.value = "";
       precoInput.value = "";
+      // gráfico será atualizado em renderTabela()
     });
 
     cancelEditBtn.addEventListener('click', () => {
       cancelEdit();
     });
+
+    // Função do gráfico
+    function renderChart(){
+      // se não existe canvas (por algum motivo), aborta
+      if(!chartCanvas) return;
+
+      if(estoqueChart){
+        estoqueChart.destroy();
+        estoqueChart = null;
+      }
+
+      if(!produtos || produtos.length === 0){
+        chartCanvas.style.display = 'none';
+        chartEmptyMsg.style.display = 'inline-block';
+        return;
+      }
+
+      chartCanvas.style.display = 'block';
+      chartEmptyMsg.style.display = 'none';
+
+      const labels = produtos.map(p => escapeHtml(p.nome));
+      const data = produtos.map(p => Number(p.qtd));
+
+      // cores simples
+      const backgroundColors = labels.map((_, i) => {
+        const base = 200 - (i * 6 % 120);
+        return `rgba(${37 + i*10 % 200}, ${99 + i*6 % 156}, ${235 - i*4 % 100}, 0.85)`;
+      });
+
+      const ctx = chartCanvas.getContext('2d');
+      estoqueChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Quantidade em estoque',
+            data,
+            backgroundColor: backgroundColors,
+            borderColor: backgroundColors.map(c => c.replace('0.85','1')),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: '#0b1220' },
+              title: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { precision:0, color: '#0b1220' },
+              title: { display: true, text: 'Unidades' }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          interaction: {
+            mode: 'nearest',
+            intersect: false
+          }
+        }
+      });
+    }
 
     function escapeHtml(text) {
       return String(text)
@@ -178,6 +266,9 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+
+    // garante que o gráfico seja renderizado corretamente após carregar
+    window.addEventListener('load', renderChart);
   </script>
 </body>
 </html>
