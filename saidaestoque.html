@@ -38,7 +38,11 @@
       <label for="dataSaidaInput" style="display:block; width:100%;">Data e hora da saída:</label>
       <input id="dataSaidaInput" type="datetime-local" style="min-width:220px;" />
 
-      <button id="regSaidaBtn" class="btn">Registrar saída (-1)</button>
+      <!-- novo: quantidade de saída -->
+      <label for="qtdSaidaInput" style="display:block; width:100%;">Quantidade a retirar:</label>
+      <input id="qtdSaidaInput" type="number" min="1" value="1" style="width:100px;" />
+
+      <button id="regSaidaBtn" class="btn">Registrar saída</button>
       <small id="saidaMsg" style="display:block; margin-top:8px;"></small>
     </section>
 
@@ -56,7 +60,7 @@
       <h3 style="color:var(--accent-2); margin-bottom:10px;">Registros de saída (últimos)</h3>
       <table class="product-table">
         <thead>
-          <tr><th>Data</th><th>Produto</th><th>Motivo</th><th>Responsável</th></tr>
+          <tr><th>Data</th><th>Produto</th><th>Qtd</th><th>Motivo</th><th>Responsável</th></tr>
         </thead>
         <tbody id="registrosBody"></tbody>
       </table>
@@ -73,6 +77,7 @@
     const responsavelInput = document.getElementById('responsavelInput');
     const registrosBody = document.getElementById('registrosBody');
     const dataSaidaInput = document.getElementById('dataSaidaInput');
+    const qtdSaidaInput = document.getElementById('qtdSaidaInput');
 
     function escapeHtml(text) {
       return String(text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -106,6 +111,7 @@
         produtoSelect.appendChild(opt);
         produtoSelect.disabled = true;
         regSaidaBtn.disabled = true;
+        qtdSaidaInput.disabled = true;
       } else {
         produtos.forEach(p => {
           const opt = document.createElement('option');
@@ -115,6 +121,7 @@
         });
         produtoSelect.disabled = false;
         regSaidaBtn.disabled = false;
+        qtdSaidaInput.disabled = false;
       }
 
       // preview tabela
@@ -128,13 +135,18 @@
           previewBody.appendChild(tr);
         });
       }
+
+      // ajusta max da quantidade para o produto selecionado (se houver)
+      if (!produtoSelect.disabled) {
+        produtoSelect.dispatchEvent(new Event('change'));
+      }
     }
 
     function carregarRegistros() {
       const registros = JSON.parse(localStorage.getItem('saidas')) || [];
       registrosBody.innerHTML = '';
       if (registros.length === 0) {
-        registrosBody.innerHTML = '<tr><td colspan="4" class="text-center small text-muted">Nenhum registro</td></tr>';
+        registrosBody.innerHTML = '<tr><td colspan="5" class="text-center small text-muted">Nenhum registro</td></tr>';
         return;
       }
       // mostrar os últimos 20 registros (mais recentes primeiro)
@@ -142,7 +154,7 @@
       últimos.forEach(r => {
         const dt = new Date(r.data).toLocaleString();
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${dt}</td><td>${escapeHtml(r.nome)}</td><td>${escapeHtml(r.motivo)}</td><td>${escapeHtml(r.responsavel)}</td>`;
+        tr.innerHTML = `<td>${dt}</td><td>${escapeHtml(r.nome)}</td><td>${r.quantidade}</td><td>${escapeHtml(r.motivo)}</td><td>${escapeHtml(r.responsavel)}</td>`;
         registrosBody.appendChild(tr);
       });
     }
@@ -150,6 +162,37 @@
     // mostra/oculta input de motivo quando "Outro" selecionado
     tipoSaida.addEventListener('change', () => {
       motivoOutro.style.display = tipoSaida.value === 'outro' ? 'inline-block' : 'none';
+    });
+
+    // quando troca produto, ajusta máximo da quantidade disponível
+    produtoSelect.addEventListener('change', () => {
+      const selId = produtoSelect.value;
+      const produtos = JSON.parse(localStorage.getItem('produtos')) || [];
+      const p = produtos.find(x => String(x.id) === String(selId));
+      if (!p) {
+        qtdSaidaInput.max = '';
+        return;
+      }
+      qtdSaidaInput.max = String(p.qtd);
+      // se quantidade atual for maior que estoque, ajusta para estoque
+      const cur = parseInt(qtdSaidaInput.value, 10) || 1;
+      if (cur > Number(p.qtd)) qtdSaidaInput.value = p.qtd > 0 ? p.qtd : 1;
+      atualizarTextoBotao();
+    });
+
+    // atualiza texto do botão para mostrar quantidade selecionada
+    function atualizarTextoBotao() {
+      const q = parseInt(qtdSaidaInput.value, 10) || 1;
+      regSaidaBtn.textContent = q > 1 ? `Registrar saída (-${q})` : 'Registrar saída (-1)';
+    }
+
+    qtdSaidaInput.addEventListener('input', () => {
+      // força valor mínimo 1
+      if (qtdSaidaInput.value === '' || Number(qtdSaidaInput.value) < 1) qtdSaidaInput.value = 1;
+      // respeita max (se definido)
+      const max = parseInt(qtdSaidaInput.max, 10);
+      if (max && Number(qtdSaidaInput.value) > max) qtdSaidaInput.value = max;
+      atualizarTextoBotao();
     });
 
     regSaidaBtn.addEventListener('click', () => {
@@ -171,8 +214,15 @@
         saidaMsg.textContent = 'Produto não encontrado.';
         return;
       }
-      if (Number(produtos[idx].qtd) <= 0) {
-        saidaMsg.textContent = 'Estoque insuficiente para registrar saída.';
+
+      const disponivel = Number(produtos[idx].qtd);
+      const qtd = Math.max(1, parseInt(qtdSaidaInput.value, 10) || 1);
+      if (qtd <= 0) {
+        saidaMsg.textContent = 'Quantidade inválida.';
+        return;
+      }
+      if (qtd > disponivel) {
+        saidaMsg.textContent = `Estoque insuficiente. Disponível: ${disponivel}.`;
         return;
       }
 
@@ -184,7 +234,7 @@
       const dataISO = datetimeLocalToISO(dataSaidaInput.value);
 
       // decrementa
-      produtos[idx].qtd = Number(produtos[idx].qtd) - 1;
+      produtos[idx].qtd = Number(produtos[idx].qtd) - qtd;
       localStorage.setItem('produtos', JSON.stringify(produtos));
 
       // registra saída em histórico
@@ -192,6 +242,7 @@
       registros.push({
         produtoId: produtos[idx].id,
         nome: produtos[idx].nome,
+        quantidade: qtd,
         motivo,
         tipo,
         responsavel,
@@ -207,6 +258,9 @@
       motivoOutro.style.display = 'none';
       // reset data para hora atual
       dataSaidaInput.value = toDatetimeLocalValue(new Date());
+      // reset quantidade para 1 (ou para máximo disponível se for menor)
+      qtdSaidaInput.value = produtos[idx].qtd > 0 ? 1 : 1;
+      atualizarTextoBotao();
 
       carregarProdutos();
       carregarRegistros();
@@ -223,6 +277,7 @@
 
     // inicializa: data atual no input e carrega dados
     dataSaidaInput.value = toDatetimeLocalValue(new Date());
+    atualizarTextoBotao();
     carregarProdutos();
     carregarRegistros();
   </script>
